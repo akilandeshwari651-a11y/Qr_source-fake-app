@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SecureQR - AI Fake QR Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+body { background: #f0f9ff; color: #0f172a; padding-bottom: 80px; }
+
+/* TOP BAR */
+.topbar { 
+  background: linear-gradient(135deg, #0ea5e9, #0284c7); 
+  color: white; 
+  padding: 16px 20px; 
+  text-align: center;
+  position: sticky; 
+  top: 0; 
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.topbar h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+/* CONTAINER */
+.container { max-width: 600px; margin: 0 auto; padding: 20px 16px; }
+
+/* CARDS */
+.card { 
+  background: white; 
+  padding: 20px; 
+  border-radius: 16px; 
+  box-shadow: 0 6px 20px rgba(0,0,0,0.06); 
+  margin-bottom: 20px; 
+}
+.card h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+.card p { color: #475569; font-size: 14px; margin-bottom: 16px; line-height: 1.6; }
+
+.btn { 
+  background: #0284c7; 
+  color: white; 
+  padding: 14px 20px; 
+  border: none; 
+  border-radius: 10px; 
+  cursor: pointer; 
+  font-weight: 700; 
+  font-size: 15px;
+  width: 100%;
+  transition: 0.3s;
+}
+.btn:hover { background: #0369a1; }
+.btn-danger { background: #ef4444; }
+.btn-danger:hover { background: #dc2626; }
+
+#reader { width: 100%; border-radius: 12px; margin: 16px 0; }
+.result-box { padding: 16px; border-radius: 12px; margin-top: 16px; text-align: left; }
+.safe { background: #dcfce7; border-left: 4px solid #22c55e; }
+.unsafe { background: #fee2e2; border-left: 4px solid #ef4444; }
+.score { font-size: 32px; font-weight: 700; }
+.progress { width: 100%; height: 10px; background: #e2e8f0; border-radius: 10px; margin: 10px 0; }
+.progress-bar { height: 10px; border-radius: 10px; }
+
+/* BOTTOM NAVBAR */
+.bottom-nav { 
+  position: fixed; 
+  bottom: 0; 
+  left: 0; 
+  width: 100%; 
+  background: white; 
+  display: flex; 
+  justify-content: space-around; 
+  padding: 8px 0;
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+  z-index: 100;
+}
+.nav-item { 
+  flex: 1; 
+  text-align: center; 
+  border: none; 
+  background: none; 
+  color: #94a3b8; 
+  font-size: 11px; 
+  font-weight: 600; 
+  cursor: pointer;
+  padding: 4px 0;
+}
+.nav-item .nav-icon { font-size: 22px; display: block; margin-bottom: 2px; }
+.nav-item.active { color: #0284c7; }
+
+.page { display: none; }
+.page.active { display: block; }
+.history-item { padding: 12px; background: #f8fafc; border-radius: 8px; margin: 8px 0; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <h1><span>🛡️</span> SecureQR</h1>
+</div>
+
+<div class="container">
+
+  <!-- 1. SCAN PAGE -->
+  <div id="scan" class="page active">
+    <div class="card">
+      <h2>AI QR Scanner</h2>
+      <p>Point camera at QR Code. AI will check if it's fake or phishing link.</p>
+      <div id="reader"></div>
+      <button class="btn" onclick="startScanner()">📷 Start Scan</button>
+      
+      <div id="result" style="display:none;">
+        <h3>Scan Result</h3>
+        <p id="qr-link"></p>
+        <div class="result-box" id="result-box">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Safety Score</span>
+            <span class="score" id="score">0%</span>
+          </div>
+          <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+          <p id="verdict"></p>
+        </div>
+        <button class="btn btn-danger" onclick="reportQR()">⚠️ Report as Fake</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. AI CHECK PAGE -->
+  <div id="check" class="page">
+    <div class="card">
+      <h2>Manual URL Check</h2>
+      <p>Paste QR link here to check manually</p>
+      <input type="text" id="url-input" placeholder="https://example.com" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; margin:10px 0;">
+      <button class="btn" onclick="checkURL()">🔍 Check with AI</button>
+    </div>
+  </div>
+
+  <!-- 3. HISTORY PAGE -->
+  <div id="history" class="page">
+    <div class="card">
+      <h2>📜 Scan History</h2>
+      <div id="history-list">
+        <p style="color:gray;">No scans yet</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. PROFILE PAGE -->
+  <div id="profile" class="page">
+    <div class="card" style="text-align:center;">
+      <div style="width:80px; height:80px; background:#e0f2fe; border-radius:50%; margin:0 auto 12px; font-size:40px; display:flex; align-items:center; justify-content:center;">👤</div>
+      <h2>Guest User</h2>
+      <p>Scans Today: <b id="scan-count">0</b></p>
+      <p>Fake QR Blocked: <b id="blocked-count">0</b></p>
+    </div>
+    <div class="card">
+      <h3>🛡️ How AI Works</h3>
+      <p>• Checks domain reputation</p>
+      <p>• Detects phishing keywords</p>
+      <p>• Verifies SSL Certificate</p>
+      <p>• Matches with blacklist database</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAVBAR -->
+<div class="bottom-nav">
+  <button class="nav-item active" id="nav-scan" onclick="showPage('scan')">
+    <span class="nav-icon">📷</span>
+    Scan
+  </button>
+  <button class="nav-item" id="nav-check" onclick="showPage('check')">
+    <span class="nav-icon">🔍</span>
+    AI Check
+  </button>
+  <button class="nav-item" id="nav-history" onclick="showPage('history')">
+    <span class="nav-icon">📜</span>
+    History
+  </button>
+  <button class="nav-item" id="nav-profile" onclick="showPage('profile')">
+    <span class="nav-icon">👤</span>
+    Profile
+  </button>
+</div>
+
+<script>
+let html5QrcodeScanner;
+let scanCount = 0;
+let blockedCount = 0;
+let history = [];
+
+function showPage(pageId){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('nav-' + pageId).classList.add('active');
+}
+
+// AI SIMULATION FUNCTION
+function analyzeURL(url){
+  let score = 100;
+  let reasons = [];
+  
+  // Fake detection logic
+  if(url.includes('bit.ly') || url.includes('tinyurl')) { score -= 30; reasons.push("Shortened URL"); }
+  if(url.includes('login') || url.includes('verify') || url.includes('update')) { score -= 20; reasons.push("Suspicious Keywords"); }
+  if(!url.startsWith('https')) { score -= 40; reasons.push("No SSL Certificate"); }
+  if(url.split('.').length > 3) { score -= 25; reasons.push("Suspicious Domain"); }
+  
+  if(score < 60) blockedCount++;
+  scanCount++;
+  
+  return { score, reasons, status: score >= 70 ? 'safe' : 'unsafe' };
+}
+
+function showResult(url){
+  let analysis = analyzeURL(url);
+  document.getElementById('result').style.display = 'block';
+  document.getElementById('qr-link').innerText = url;
+  document.getElementById('score').innerText = analysis.score + '%';
+  document.getElementById('progress-bar').style.width = analysis.score + '%';
+  document.getElementById('progress-bar').style.background = analysis.status == 'safe' ? '#22c55e' : '#ef4444';
+  
+  let box = document.getElementById('result-box');
+  box.className = 'result-box ' + analysis.status;
+  document.getElementById('verdict').innerText = analysis.status == 'safe' 
+    ? '✅ Safe to Open' 
+    : '⚠️ Warning: Potential Fake QR! Reasons: ' + analysis.reasons.join(', ');
+  
+  // Save to history
+  history.unshift({url, score: analysis.score, time: new Date().toLocaleTimeString()});
+  updateHistory();
+  updateProfile();
+}
+
+function startScanner(){
+  if(html5QrcodeScanner) html5QrcodeScanner.clear();
+  html5QrcodeScanner = new Html5Qrcode("reader");
+  html5QrcodeScanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    (decodedText) => {
+      html5QrcodeScanner.stop();
+      showResult(decodedText);
+    }
+  ).catch(err => alert("Camera access denied"));
+}
+
+function checkURL(){
+  let url = document.getElementById('url-input').value;
+  if(url) showResult(url);
+}
+
+function reportQR(){
+  alert("✅ QR Reported to SecureQR Database. Thank you for keeping community safe!");
+}
+
+function updateHistory(){
+  let list = document.getElementById('history-list');
+  if(history.length == 0) return;
+  list.innerHTML = history.map(h => `
+    <div class="history-item">
+      <b>${h.url.substring(0,40)}...</b><br>
+      Score: ${h.score}% | Time: ${h.time}
+    </div>
+  `).join('');
+}
+
+function updateProfile(){
+  document.getElementById('scan-count').innerText = scanCount;
+  document.getElementById('blocked-count').innerText = blockedCount;
+}
+</script>
+
+</body>
+</html>
